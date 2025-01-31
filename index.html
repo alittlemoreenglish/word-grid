@@ -1,0 +1,408 @@
+<html><head><base href=""><style> 
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: Arial, sans-serif;
+    background: #f0f8ff;
+  }
+
+  .container {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+
+  .game-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .word-list {
+    width: 200px;
+    min-height: 300px;
+    background: white;
+    border: 2px solid #4682b4;
+    border-radius: 8px;
+    padding: 10px;
+    margin: 20px;
+  }
+
+  .word-list h3 {
+    margin-top: 0;
+    color: #4682b4;
+  }
+
+  .word-item {
+    padding: 5px;
+    margin: 5px 0;
+    background: #e6f3ff;
+    border-radius: 4px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin: 20px;
+  }
+
+  .cell {
+    width: 60px;
+    height: 60px;
+    background: #fff;
+    border: 2px solid #4682b4;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .cell:hover {
+    background: #e6f3ff;
+  }
+
+  .cell.selected {
+    background: #4682b4;
+    color: white;
+  }
+
+  .controls {
+    margin: 20px;
+    display: flex;
+    gap: 10px;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  button {
+    padding: 10px 20px;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    background: #4682b4;
+    color: white;
+    transition: background 0.3s ease;
+  }
+
+  button:hover {
+    background: #357abd;
+  }
+
+  #start-btn {
+    background: #228B22;
+    font-size: 20px;
+    padding: 15px 30px;
+    margin-bottom: 20px;
+  }
+
+  #start-btn:hover {
+    background: #006400;
+  }
+
+  #clear-btn {
+    background: #ff6b6b;
+  }
+
+  #clear-btn:hover {
+    background: #ff5252;
+  }
+
+  #word-input {
+    padding: 10px;
+    font-size: 18px;
+    margin: 10px;
+    border: 2px solid #4682b4;
+    border-radius: 5px;
+  }
+
+  #word-display, #timer {
+    font-size: 24px;
+    margin: 20px;
+    min-height: 30px;
+  }
+
+  #message {
+    font-size: 18px;
+    margin: 10px;
+    min-height: 20px;
+  }
+
+  #score {
+    font-size: 20px;
+    margin: 10px;
+  }
+
+  .medal {
+    width: 100px;
+    height: 100px;
+    margin: 20px;
+  }
+
+  @keyframes shine {
+    0% { filter: brightness(1) drop-shadow(0 0 2px rgba(255,255,255,0.6)); }
+    50% { filter: brightness(1.3) drop-shadow(0 0 8px rgba(255,255,255,0.8)); }
+    100% { filter: brightness(1) drop-shadow(0 0 2px rgba(255,255,255,0.6)); }
+  }
+
+  .medal-svg {
+    animation: shine 2s infinite;
+  }
+
+  .blur-before-start {
+    filter: blur(3px);
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
+  .game-started .blur-before-start {
+    filter: none;
+    opacity: 1;
+    pointer-events: all;
+    transition: all 0.5s ease;
+  }
+
+  .author-credit {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    color: #666;
+    font-size: 14px;
+    font-style: italic;
+  }
+
+</style></head>
+<body>
+  <h1>Word Grid</h1>
+  <button onclick="startGame()" id="start-btn">Start Game</button>
+  <div id="timer" class="blur-before-start">Time: 90s</div>
+  <div id="score" class="blur-before-start">Score: 0</div>
+  <div class="container blur-before-start">
+    <div class="game-section">
+      <div class="grid" id="grid"></div>
+      <div id="word-display">Selected letters: </div>
+      <div id="message"></div>
+      <div id="medal-container"></div>
+      <div class="controls">
+        <button onclick="submitWord()">Submit Word</button>
+        <button onclick="resetGame()">Reset Game</button>
+      </div>
+    </div>
+    <div class="word-list">
+      <h3>Found Words</h3>
+      <div id="found-words"></div>
+    </div>
+  </div>
+  <div class="author-credit">Author: Aaron Shi. Released in 2024.</div>
+
+<script>
+const grid = document.getElementById('grid');
+const wordDisplay = document.getElementById('word-display');
+const messageDisplay = document.getElementById('message');
+const scoreDisplay = document.getElementById('score');
+const timerDisplay = document.getElementById('timer');
+const medalContainer = document.getElementById('medal-container');
+const foundWordsContainer = document.getElementById('found-words');
+
+let score = 0;
+let usedWords = new Set();
+let timeLeft = 90;
+let gameTimer;
+let selectedCells = [];
+let gameStarted = false;
+
+const vowels = ['A', 'E', 'I', 'O', 'U'];
+
+function generateRandomLetter() {
+    return String.fromCharCode(65 + Math.floor(Math.random() * 26));
+}
+
+function createGrid() {
+    grid.innerHTML = '';
+    let letters = [...vowels];
+    while (letters.length < 16) {
+        letters.push(generateRandomLetter());
+    }
+    letters.sort(() => Math.random() - 0.5);
+    
+    letters.forEach(letter => {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.textContent = letter;
+        cell.addEventListener('click', () => selectCell(cell));
+        grid.appendChild(cell);
+    });
+}
+
+function selectCell(cell) {
+    if (!gameStarted) return;
+    
+    const index = selectedCells.indexOf(cell);
+    if (index === -1) {
+        cell.classList.add('selected');
+        selectedCells.push(cell);
+    } else {
+        selectedCells.forEach(c => c.classList.remove('selected'));
+        selectedCells = [];
+    }
+    updateWordDisplay();
+    messageDisplay.textContent = '';
+}
+
+function updateWordDisplay() {
+    const word = selectedCells.map(cell => cell.textContent).join('');
+    wordDisplay.textContent = `Selected letters: ${word}`;
+}
+
+function createMedal(type) {
+    const colors = {
+        gold: { main: '#FFD700', accent: '#FFA500', shadow: '#B8860B' },
+        silver: { main: '#C0C0C0', accent: '#A9A9A9', shadow: '#808080' },
+        bronze: { main: '#CD7F32', accent: '#B8860B', shadow: '#8B4513' }
+    };
+    
+    return `<svg class="medal-svg" width="100" height="100" viewBox="0 0 100 100">
+        <defs>
+            <linearGradient id="${type}Gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:${colors[type].main};stop-opacity:1" />
+                <stop offset="50%" style="stop-color:${colors[type].accent};stop-opacity:1" />
+                <stop offset="100%" style="stop-color:${colors[type].main};stop-opacity:1" />
+            </linearGradient>
+            <filter id="shadow">
+                <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+                <feOffset dx="2" dy="2" result="offsetblur"/>
+                <feFlood flood-color="${colors[type].shadow}"/>
+                <feComposite in2="offsetblur" operator="in"/>
+                <feMerge>
+                    <feMergeNode/>
+                    <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+            </filter>
+        </defs>
+        <circle cx="50" cy="50" r="40" fill="url(#${type}Gradient)" filter="url(#shadow)"/>
+        <path d="M50 20 L55 35 L70 35 L60 45 L65 60 L50 50 L35 60 L40 45 L30 35 L45 35 Z" 
+              fill="white" opacity="0.3"/>
+        <text x="50" y="55" text-anchor="middle" fill="#000" font-size="14" font-weight="bold">
+            ${type.toUpperCase()}
+        </text>
+    </svg>`;
+}
+
+function showMedal() {
+    let medalType;
+    if (score >= 100) {
+        medalType = 'gold';
+        messageDisplay.textContent = 'Congratulations! You\'ve earned a gold medal!';
+    } else if (score >= 70) {
+        medalType = 'silver';
+        messageDisplay.textContent = 'Well done! You\'ve earned a silver medal!';
+    } else if (score >= 40) {
+        medalType = 'bronze';
+        messageDisplay.textContent = 'Good job! You\'ve earned a bronze medal!';
+    } else {
+        messageDisplay.textContent = 'Keep practicing! You can do better!';
+        return;
+    }
+    medalContainer.innerHTML = createMedal(medalType);
+}
+
+function updateTimer() {
+    timeLeft--;
+    timerDisplay.textContent = `Time: ${timeLeft}s`;
+    if (timeLeft <= 0) {
+        endGame();
+    }
+}
+
+function endGame() {
+    clearInterval(gameTimer);
+    showMedal();
+    gameStarted = false;
+    document.getElementById('start-btn').disabled = false;
+}
+
+function addFoundWord(word) {
+    const wordElement = document.createElement('div');
+    wordElement.className = 'word-item';
+    wordElement.textContent = word;
+    foundWordsContainer.appendChild(wordElement);
+}
+
+async function isValidWord(word) {
+    try {
+        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word.toLowerCase()}`);
+        return response.ok;
+    } catch (error) {
+        return false;
+    }
+}
+
+async function submitWord() {
+    if (!gameStarted) return;
+    
+    const word = selectedCells.map(cell => cell.textContent).join('');
+    if (word.length < 2) {
+        messageDisplay.textContent = 'Word must be at least 2 letters long!';
+        messageDisplay.style.color = 'red';
+        return;
+    }
+
+    if (usedWords.has(word)) {
+        messageDisplay.textContent = 'You already found this word!';
+        messageDisplay.style.color = 'red';
+        return;
+    }
+
+    const valid = await isValidWord(word);
+    if (valid) {
+        usedWords.add(word);
+        score += 10;
+        scoreDisplay.textContent = `Score: ${score}`;
+        messageDisplay.textContent = 'Valid word! +10 points';
+        messageDisplay.style.color = 'green';
+        addFoundWord(word);
+    } else {
+        messageDisplay.textContent = 'Not a valid word!';
+        messageDisplay.style.color = 'red';
+    }
+    
+    selectedCells.forEach(cell => cell.classList.remove('selected'));
+    selectedCells = [];
+    updateWordDisplay();
+}
+
+function startGame() {
+    if (!gameStarted) {
+        gameStarted = true;
+        document.getElementById('start-btn').disabled = true;
+        document.body.classList.add('game-started');
+        gameTimer = setInterval(updateTimer, 1000);
+    }
+}
+
+function resetGame() {
+    createGrid();
+    score = 0;
+    timeLeft = 90;
+    usedWords.clear();
+    selectedCells = [];
+    gameStarted = false;
+    scoreDisplay.textContent = `Score: ${score}`;
+    messageDisplay.textContent = '';
+    medalContainer.innerHTML = '';
+    foundWordsContainer.innerHTML = '';
+    wordDisplay.textContent = 'Selected letters: ';
+    document.getElementById('start-btn').disabled = false;
+    document.body.classList.remove('game-started');
+    clearInterval(gameTimer);
+    timerDisplay.textContent = 'Time: 90s';
+}
+
+// Initialize the game
+createGrid();
+</script>
+</body></html>
